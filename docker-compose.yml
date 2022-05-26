@@ -26,10 +26,12 @@ services:
     environment:
       - DEBUG=true
       - API_VERSION=0.1.0
+      - DATABASE_PROTOCOL=postgresql+asyncpg
       - DATABASE_HOST=postgres
       - DATABASE_PORT=5432
       - DATABASE_USERNAME=username
       - DATABASE_PASSWORD=password
+      - DATABASE_NAME=allocation
       - EMAIL_HOST=mailhog
       - EMAIL_PORT=1025
     volumes:

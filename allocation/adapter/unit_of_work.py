@@ -15,7 +15,7 @@ from ..port.unit_of_work import UnitOfWorkProtocol
 
 
 engine = create_async_engine(
-    f"postgresql+asyncpg://{settings.DATABASE_USERNAME}:{settings.DATABASE_PASSWORD}@{settings.DATABASE_HOST}:{settings.DATABASE_PORT}/test",
+    settings.DATABASE_URI,
     echo=settings.DEBUG,
 )
 
