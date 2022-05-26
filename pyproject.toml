@@ -1,0 +1,28 @@
+[tool.poetry]
+name = "async_cosmic_python"
+version = "0.1.0"
+description = ""
+authors = ["Jongbeom-Kwon <bolk9652@naver.com>"]
+packages = [
+    { include = "allocation", from = "src" }
+]
+
+[tool.poetry.dependencies]
+python = "^3.10"
+fastapi = "^0.78.0"
+SQLAlchemy = {extras = ["mypy"], version = "^1.4.36"}
+asyncpg = "^0.25.0"
+exceptiongroup = "^1.0.0-rc.7"
+aiosmtplib = "^1.1.6"
+pydamain = "^0.7.1"
+uvicorn = {extras = ["standard"], version = "^0.17.6"}
+alembic = "^1.7.7"
+
+[tool.poetry.dev-dependencies]
+pytest = "^7.1.2"
+black = "^22.3.0"
+pytest-asyncio = "^0.18.3"
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
