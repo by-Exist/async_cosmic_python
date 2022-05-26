@@ -19,9 +19,7 @@ class _Settings(_BaseSettings):
 
     @property
     def DATABASE_URI(self):
-        return (
-            f"{self.DATABASE_PROTOCOL}://{self.DATABASE_USERNAME}:{self.DATABASE_PASSWORD}@{self.DATABASE_HOST}:{self.DATABASE_PORT}/{self.DATABASE_NAME}",
-        )
+        return f"{self.DATABASE_PROTOCOL}://{self.DATABASE_USERNAME}:{self.DATABASE_PASSWORD}@{self.DATABASE_HOST}:{self.DATABASE_PORT}/{self.DATABASE_NAME}"
 
 
 settings = _Settings()  # type: ignore
