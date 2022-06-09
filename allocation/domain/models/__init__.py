@@ -1,4 +1,4 @@
 # type: ignore
-from .value_object import OrderLine
-from .entity import Batch
-from .aggregate import Product
+from .order_line import OrderLine
+from .batch import Batch
+from .product import Product

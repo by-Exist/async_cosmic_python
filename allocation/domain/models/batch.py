@@ -2,7 +2,7 @@ from datetime import date
 from typing import Any, Optional
 
 from .bases import Entity, field
-from .value_object import OrderLine
+from .order_line import OrderLine
 
 
 class Batch(Entity):

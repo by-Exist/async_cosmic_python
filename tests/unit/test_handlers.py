@@ -5,15 +5,13 @@ from types import TracebackType
 from typing import Optional
 
 import pytest
-
-from allocation import bootstrap
-from allocation import port
+from allocation import bootstrap, port
 from allocation.domain.messages import commands
 from allocation.domain.models import Product
 from allocation.service import exceptions
 
 
-class FakeRepository(port.ProductRepositoryProtocol):
+class FakeRepository(port.repository.ProductRepository):
     def __init__(self, products: set[Product]):
         self._products = products
 
@@ -55,7 +53,7 @@ def set_uows_context_var():
     uows_context_var.reset(token)
 
 
-class FakeUnitOfWork(port.UnitOfWorkProtocol):
+class FakeUnitOfWork(port.unit_of_work.UnitOfWork):
     def __init__(self):
         self.products = FakeRepository(products_context_var.get())
         self._outbox = None  # type: ignore
@@ -83,7 +81,7 @@ class FakeUnitOfWork(port.UnitOfWorkProtocol):
 uows_context_var: ContextVar[list[FakeUnitOfWork]] = ContextVar("uows")
 
 
-class FakeEmailSender(port.EmailSender):
+class FakeEmailSender(port.email_sender.EmailSender):
 
     HOST: str = "fake"
     PORT: int = 0000
@@ -99,7 +97,7 @@ def bootstrap_test_app():
 
     return bootstrap.bootstrap(
         start_orm_mapping=False,
-        uow_factory=FakeUnitOfWork,
+        uow_class=FakeUnitOfWork,
         email_sender=FakeEmailSender(),
     )
 
@@ -107,19 +105,19 @@ def bootstrap_test_app():
 class TestAddBatch:
     async def test_for_new_product(self):
         bus = bootstrap_test_app()
-        await bus.dispatch(
+        await bus.handle(
             commands.CreateBatch(ref="b1", sku="CRUNCHY-ARMCHAIR", qty=100, eta=None)
         )
         assert uows_context_var.get()[0].committed
         async with FakeUnitOfWork() as uow:
-            assert uow.products.get("CRUNCHY-ARMCHAIR") is not None
+            assert await uow.products.get("CRUNCHY-ARMCHAIR") is not None
 
     async def test_for_existing_product(self):
         bus = bootstrap_test_app()
-        await bus.dispatch(
+        await bus.handle(
             commands.CreateBatch(ref="b1", sku="GARISH-RUG", qty=100, eta=None)
         )
-        await bus.dispatch(
+        await bus.handle(
             commands.CreateBatch(ref="b2", sku="GARISH-RUG", qty=99, eta=None)
         )
         async with FakeUnitOfWork() as uow:
@@ -132,12 +130,12 @@ class TestAddBatch:
 class TestAllocate:
     async def test_allocates(self):
         bus = bootstrap_test_app()
-        await bus.dispatch(
+        await bus.handle(
             commands.CreateBatch(
                 ref="batch1", sku="COMPLICATED-LAMP", qty=100, eta=None
             )
         )
-        await bus.dispatch(
+        await bus.handle(
             commands.Allocate(order_id="o1", sku="COMPLICATED-LAMP", qty=10)
         )
         async with FakeUnitOfWork() as uow:
@@ -147,20 +145,18 @@ class TestAllocate:
 
     async def test_errors_for_invalid_sku(self):
         bus = bootstrap_test_app()
-        await bus.dispatch(commands.CreateBatch(ref="b1", sku="AREALSKU", qty=100))
+        await bus.handle(commands.CreateBatch(ref="b1", sku="AREALSKU", qty=100))
         with pytest.raises(exceptions.InvalidSku):
-            await bus.dispatch(
+            await bus.handle(
                 commands.Allocate(order_id="o1", sku="NONEXISTENTSKU", qty=10)
             )
 
     async def test_commits(self):
         bus = bootstrap_test_app()
-        await bus.dispatch(
+        await bus.handle(
             commands.CreateBatch(ref="b1", sku="OMINOUS-MIRROR", qty=100, eta=None)
         )
-        await bus.dispatch(
-            commands.Allocate(order_id="o1", sku="OMINOUS-MIRROR", qty=10)
-        )
+        await bus.handle(commands.Allocate(order_id="o1", sku="OMINOUS-MIRROR", qty=10))
         uow = uows_context_var.get()[0]
         assert uow.committed
 
@@ -168,13 +164,13 @@ class TestAllocate:
         fake_email_sender = FakeEmailSender()
         bus = bootstrap.bootstrap(
             start_orm_mapping=False,
-            uow_factory=FakeUnitOfWork,
+            uow_class=FakeUnitOfWork,
             email_sender=fake_email_sender,
         )
-        await bus.dispatch(
+        await bus.handle(
             commands.CreateBatch(ref="b1", sku="POPULAR-CURTAINS", qty=9, eta=None)
         )
-        await bus.dispatch(
+        await bus.handle(
             commands.Allocate(order_id="o1", sku="POPULAR-CURTAINS", qty=10)
         )
         assert fake_email_sender.sent.pop() is not None
@@ -183,7 +179,7 @@ class TestAllocate:
 class TestChangeBatchQuantity:
     async def test_changes_available_quantity(self):
         bus = bootstrap_test_app()
-        await bus.dispatch(
+        await bus.handle(
             commands.CreateBatch(ref="batch1", sku="ADORABLE-SETTEE", qty=100, eta=None)
         )
         async with FakeUnitOfWork() as uow:
@@ -193,7 +189,7 @@ class TestChangeBatchQuantity:
                 else []
             )
             assert batch.available_quantity == 100
-            await bus.dispatch(commands.ChangeBatchQuantity(ref="batch1", qty=50))
+            await bus.handle(commands.ChangeBatchQuantity(ref="batch1", qty=50))
             assert batch.available_quantity == 50
 
     async def test_reallocates_if_necessary(self):
@@ -209,7 +205,7 @@ class TestChangeBatchQuantity:
             commands.Allocate(order_id="order2", sku="INDIFFERENT-TABLE", qty=20),
         ]
         for msg in history:
-            await bus.dispatch(msg)
+            await bus.handle(msg)
 
         async with FakeUnitOfWork() as uow:
             product = await uow.products.get(sku="INDIFFERENT-TABLE")
@@ -218,6 +214,6 @@ class TestChangeBatchQuantity:
             assert batch1.available_quantity == 10
             assert batch2.available_quantity == 50
 
-        await bus.dispatch(commands.ChangeBatchQuantity(ref="batch1", qty=25))
+        await bus.handle(commands.ChangeBatchQuantity(ref="batch1", qty=25))
         assert batch1.available_quantity == 5
         assert batch2.available_quantity == 30

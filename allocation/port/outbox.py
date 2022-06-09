@@ -1,8 +1,14 @@
-from typing import Protocol
-from pydamain import port  # type: ignore
+from typing import Iterable, Protocol, TypeVar
 
-from ..domain.messages.base import Event
+E = TypeVar("E")
 
 
-class OutboxProtocol(port.Outbox[Event], Protocol):
-    ...
+class Outbox(Protocol[E]):
+    async def all(self) -> Iterable[E]:
+        ...
+
+    async def put(self, _envelope: E) -> None:
+        ...
+
+    async def delete(self, _envelope: E) -> None:
+        ...

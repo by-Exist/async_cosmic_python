@@ -1,12 +1,30 @@
-from typing import Protocol
+from types import TracebackType
+from typing import Optional, Protocol
 
-from pydamain import port  # type: ignore
+from allocation.domain.messages.events import Event
+from typing_extensions import Self
 
-from .repository import ProductRepositoryProtocol
-from .outbox import OutboxProtocol
+from . import outbox, repository
 
 
-class UnitOfWorkProtocol(port.UnitOfWork, Protocol):
+class UnitOfWork(Protocol):
 
-    products: ProductRepositoryProtocol
-    _outbox: OutboxProtocol
+    products: repository.ProductRepository
+    _outbox: outbox.Outbox[Event]
+
+    async def __aenter__(self) -> Self:
+        ...
+
+    async def __aexit__(
+        self,
+        exc_type: Optional[type[BaseException]],
+        exc_value: Optional[BaseException],
+        traceback: Optional[TracebackType],
+    ) -> None:
+        ...
+
+    async def commit(self) -> None:
+        ...
+
+    async def rollback(self) -> None:
+        ...

@@ -1,9 +1,9 @@
 from datetime import date, timedelta
-
-from pydamain.service import MessageCatcher  # type: ignore
+from typing import cast
 
 from allocation.domain.messages import events
-from allocation.domain.models import Product, OrderLine, Batch
+from allocation.domain.models import Batch, OrderLine, Product
+from allocation.service.message_bus import MessageCatcher
 
 today = date.today()
 tomorrow = today + timedelta(days=1)
@@ -86,7 +86,8 @@ def test_outputs_allocated_event():
     product = Product(sku="RETRO-LAMPSHADE", batches=[batch])
     with MessageCatcher() as message_catcher:
         product.allocate(line)
-    allocated_event: events.Allocated = message_catcher.issued_messages.pop()
+    allocated_event = message_catcher.issued_messages.pop()
+    allocated_event = cast(events.Allocated, allocated_event)
     assert isinstance(allocated_event, events.Allocated)
     assert allocated_event.aggregate_id == product.sku
     assert allocated_event.order_id == line.order_id

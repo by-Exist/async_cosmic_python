@@ -1,21 +1,42 @@
-from typing import Any, Awaitable, Callable, Optional
-from pydamain.service import MessageBus  # type: ignore
+from typing import Any, Awaitable, Callable, Optional, TypeVar
 
-from .adapter.email_sender import EmailSender
-from .adapter.unit_of_work import UnitOfWork
-from .adapter.orm import start_mapping
-from .domain.messages import commands, events
-from .service.handlers import handlers
+from loguru import logger
 
-from . import port
+from allocation import port
+from allocation.adapter.orm import start_mapping
+from allocation.domain.messages import commands, events
+from allocation.domain.messages.base import Message
+from allocation.service import handlers
+from allocation.service.message_bus import Handler, MessageBus
+
+
+M = TypeVar("M", bound=Message)
+
+
+async def pre_hook(msg: M, handler: Handler[M]):
+    ...
+
+
+async def post_hook(msg: M, handler: Handler[M]):
+    logger.debug(f"[Handled {handler.__name__} {type(msg).__name__}] {msg}")
+
+
+async def exception_hook(msg: M, handler: Handler[M], exc: Exception):
+    logger.exception(
+        f"[Exception {type(exc)} {handler.__name__} {type(msg).__name__}] {exc} "
+    )
 
 
 def bootstrap(
-    start_orm_mapping: bool = True,
-    uow_factory: type[port.UnitOfWorkProtocol] = UnitOfWork,
-    email_sender: port.EmailSender = EmailSender(),
-    pre_hook: Optional[Callable[[Any, Any], Awaitable[None]]] = None,
-    post_hook: Optional[Callable[[Any, Any], Awaitable[None]]] = None,
+    *,
+    start_orm_mapping: bool,
+    uow_class: type[port.unit_of_work.UnitOfWork],
+    email_sender: port.email_sender.EmailSender,
+    pre_hook: Optional[Callable[[Message, Handler[Any]], Awaitable[None]]] = pre_hook,
+    post_hook: Optional[Callable[[Message, Handler[Any]], Awaitable[None]]] = post_hook,
+    exception_hook: Optional[
+        Callable[[Message, Handler[Any], Exception], Awaitable[None]]
+    ] = exception_hook,
 ) -> MessageBus:
 
     if start_orm_mapping:
@@ -23,22 +44,31 @@ def bootstrap(
 
     message_bus = MessageBus(
         deps={
+            "uow_factory": uow_class,
             "email_sender": email_sender,
-            "uow_factory": uow_factory,
         },
         pre_hook=pre_hook,
         post_hook=post_hook,
+        exception_hook=exception_hook,
     )
-    # commands
-    message_bus.register(commands.Allocate, handlers.allocate)
-    message_bus.register(commands.ChangeBatchQuantity, handlers.change_batch_quantity)
-    message_bus.register(commands.CreateBatch, handlers.add_batch)
-    # events
-    message_bus.register(events.Allocated, (handlers.add_allocation_to_read_model))
-    message_bus.register(
+
+    # Commands
+    message_bus.register_handler(commands.Allocate, handlers.allocate)
+    message_bus.register_handler(
+        commands.ChangeBatchQuantity, handlers.change_batch_quantity
+    )
+    message_bus.register_handler(commands.CreateBatch, handlers.add_batch)
+
+    # Events
+    message_bus.register_handlers(
+        events.Allocated, [handlers.add_allocation_to_read_model]
+    )
+    message_bus.register_handlers(
         events.Deallocated,
-        (handlers.remove_allocation_from_read_model, handlers.reallocate),
+        [handlers.remove_allocation_from_read_model, handlers.reallocate],
     )
-    message_bus.register(events.OutOfStock, (handlers.send_out_of_stock_notification))
+    message_bus.register_handlers(
+        events.OutOfStock, [handlers.send_out_of_stock_notification]
+    )
 
     return message_bus

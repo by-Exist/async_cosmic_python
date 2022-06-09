@@ -1,10 +1,13 @@
-from ..adapter.unit_of_work import UnitOfWork
+from sqlalchemy import text
+from sqlalchemy.ext.asyncio import AsyncSession
 
 
-async def allocations(order_id: str, uow_factory: type[UnitOfWork]):
-    async with uow_factory() as uow:
-        results = await uow._session.execute(  # type: ignore
-            "SELECT sku, batchref FROM allocations_view WHERE orderid = :orderid",  # type: ignore
-            dict(order_id=order_id),
+async def allocations(order_id: str, session: AsyncSession):
+    async with session.begin():
+        results = await session.execute(
+            text(
+                "SELECT sku, batchref FROM allocations_view WHERE order_id = :order_id"
+            ),
+            {"order_id": order_id},
         )
-    return [dict(result) for result in results]
+    return [row._mapping for row in results.all()]

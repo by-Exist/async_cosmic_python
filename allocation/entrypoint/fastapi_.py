@@ -1,20 +1,54 @@
 from datetime import datetime
-from typing import Optional
+from typing import Any, Callable, Optional
 
-from pydantic import BaseModel
+from allocation.adapter.email_sender import EmailSender
+from allocation.adapter.unit_of_work import SQLAlchemyUnitOfWork
+from allocation.bootstrap import bootstrap
+from allocation.config import settings
+from allocation.domain.messages import commands
+from allocation.service import exceptions, views
 from fastapi import FastAPI, status
 from fastapi.encoders import jsonable_encoder
 from fastapi.responses import JSONResponse
+from pydantic import BaseModel
+from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
+from sqlalchemy.orm import sessionmaker
 
-from ..domain.messages import commands
-from ..service import exceptions, views
-
-from ..bootstrap import bootstrap
-from ..config import settings
+app = FastAPI(debug=False, version=settings.API_VERSION)
 
 
-app = FastAPI(debug=settings.DEBUG, version=settings.API_VERSION)
-bus = bootstrap()
+class UnitOfWork(SQLAlchemyUnitOfWork):
+    SESSION_FACTORY: Callable[[], AsyncSession] = sessionmaker(  # type: ignore
+        create_async_engine(
+            settings.DATABASE_URL,
+            isolation_level="REPEATABLE READ",
+            future=True,
+        ),
+        class_=AsyncSession,  # type: ignore
+    )
+
+
+match settings.DEPLOYMENT_ENVIRONMENT:
+    case "local":
+        conf = {
+            "start_orm_mapping": True,
+            "uow_class": UnitOfWork,
+            "email_sender": EmailSender(),
+        }
+    case "dev":
+        conf = {
+            "start_orm_mapping": True,
+            "uow_class": UnitOfWork,
+            "email_sender": EmailSender(),
+        }
+    case "prod":
+        conf = {
+            "start_orm_mapping": True,
+            "uow_class": UnitOfWork,
+            "email_sender": EmailSender(),
+        }
+
+bus = bootstrap(**conf)  # type: ignore
 
 
 class AddBatchRequest(BaseModel):
@@ -26,7 +60,7 @@ class AddBatchRequest(BaseModel):
 
 @app.post("/add_batch")
 async def add_batch(req: AddBatchRequest):
-    await bus.dispatch(
+    await bus.handle(
         commands.CreateBatch(ref=req.ref, sku=req.sku, qty=req.qty, eta=req.eta)
     )
     return "OK"
@@ -47,7 +81,7 @@ class AllocateRequest(BaseModel):
 )
 async def allocate(req: AllocateRequest):
     try:
-        await bus.dispatch(
+        await bus.handle(
             commands.Allocate(order_id=req.order_id, sku=req.sku, qty=req.qty)
         )
     except exceptions.InvalidSku as e:
@@ -59,7 +93,7 @@ async def allocate(req: AllocateRequest):
 
 @app.get("/allocations/{order_id}")
 async def list_allocation(order_id: str):
-    result = await views.allocations(
+    result: list[dict[str, Any]] = await views.allocations(
         order_id=order_id, uow_factory=bus._deps["uow_factory"]  # type: ignore
     )
     if not result:

@@ -1,22 +1,19 @@
-from sqlalchemy import ForeignKey, Table, Column, Integer, String, Date
-from sqlalchemy.dialects.postgresql import UUID, JSONB, TIMESTAMP
+from allocation.domain.models import Batch, OrderLine, Product
+from sqlalchemy import Column, Date, ForeignKey, Integer, String, Table
+from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import registry, relationship
 
 from .outbox import Envelope
-
-from ..domain.models import OrderLine, Batch, Product
-
 
 mapper_registry = registry()
 
 
 event_outbox_table = Table(
-    "envelopes",
+    "events",
     mapper_registry.metadata,
     Column("id", UUID(as_uuid=True), primary_key=True),
     Column("type", String(255), nullable=False),
     Column("payload", JSONB, nullable=False),
-    Column("timestamp", TIMESTAMP, nullable=False),
     Column("aggregate_id", String(255), nullable=False),
     Column("aggregate_type", String(255), nullable=False),
 )
@@ -36,7 +33,7 @@ products = Table(
     "products",
     mapper_registry.metadata,
     Column("sku", String(255), primary_key=True),
-    Column("version_number", Integer, nullable=False, server_default="0"),
+    Column("version_number", Integer, nullable=False),
 )
 
 batches = Table(
@@ -60,6 +57,7 @@ allocations = Table(
 allocations_view = Table(
     "allocations_view",
     mapper_registry.metadata,
+    Column("id", Integer, primary_key=True, autoincrement=True),
     Column("order_id", String(255)),
     Column("sku", String(255)),
     Column("batchref", String(255)),
@@ -67,7 +65,23 @@ allocations_view = Table(
 
 
 def start_mapping():
-    mapper_registry.map_imperatively(OrderLine, order_lines)  # type: ignore
-    mapper_registry.map_imperatively(Batch, batches, properties={"_allocations": relationship(OrderLine, secondary=allocations, collection_class=set)})  # type: ignore
-    mapper_registry.map_imperatively(Product, products, properties={"batches": relationship(Batch)})  # type: ignore
+    mapper_registry.map_imperatively(OrderLine, order_lines)
+    mapper_registry.map_imperatively(
+        Batch,
+        batches,
+        properties={
+            "_allocations": relationship(
+                OrderLine, secondary=allocations, collection_class=set, lazy="joined"
+            )
+        },
+    )
+    mapper_registry.map_imperatively(
+        Product,
+        products,
+        properties={
+            "batches": relationship(Batch, lazy="joined"),
+        },
+        version_id_col=products.c.version_number,
+        version_id_generator=False,
+    )
     mapper_registry.map_imperatively(Envelope, event_outbox_table)  # type: ignore

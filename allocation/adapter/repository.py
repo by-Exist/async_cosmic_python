@@ -4,12 +4,12 @@ from typing import Optional
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..domain.models import Product, Batch
-from ..port.repository import ProductRepositoryProtocol
+from allocation import port
+from allocation.domain.models import Batch, Product
 
 
 @dataclass
-class ProductRepository(ProductRepositoryProtocol):
+class ProductRepository(port.repository.ProductRepository):
 
     _session: AsyncSession
 
@@ -17,7 +17,7 @@ class ProductRepository(ProductRepositoryProtocol):
         self._session.add(product)  # type: ignore
 
     async def get(self, sku: str) -> Optional[Product]:
-        stmt = select(Product).filter(Batch.sku == sku)
+        stmt = select(Product).join(Batch).filter(Batch.sku == sku)
         result = await self._session.execute(stmt)
         return result.scalars().first()
 

@@ -1,19 +1,19 @@
 from __future__ import annotations
+
 from typing import Any
-from allocation.domain.messages import commands, events
+
+from allocation import port
+from allocation.adapter.email_sender import build_email_message
+from allocation.adapter.unit_of_work import SQLAlchemyUnitOfWork
 from allocation.domain import models
+from allocation.domain.messages import commands, events
+from sqlalchemy import text
 
-
-from ...adapter.unit_of_work import UnitOfWork
-from ...adapter.email_sender import build_email_message
-from ...port.unit_of_work import UnitOfWorkProtocol
-from ...port.email_sender import EmailSender
-
-from .. import exceptions
+from . import exceptions
 
 
 async def add_batch(
-    cmd: commands.CreateBatch, uow_factory: type[UnitOfWorkProtocol], **_: Any
+    cmd: commands.CreateBatch, uow_factory: type[port.unit_of_work.UnitOfWork], **_: Any
 ):
     async with uow_factory() as uow:
         product = await uow.products.get(sku=cmd.sku)
@@ -33,7 +33,7 @@ async def add_batch(
 
 
 async def allocate(
-    cmd: commands.Allocate, uow_factory: type[UnitOfWorkProtocol], **_: Any
+    cmd: commands.Allocate, uow_factory: type[port.unit_of_work.UnitOfWork], **_: Any
 ):
     line = models.OrderLine(order_id=cmd.order_id, sku=cmd.sku, qty=cmd.qty)
     async with uow_factory() as uow:
@@ -45,7 +45,7 @@ async def allocate(
 
 
 async def reallocate(
-    evt: events.Deallocated, uow_factory: type[UnitOfWorkProtocol], **_: Any
+    evt: events.Deallocated, uow_factory: type[port.unit_of_work.UnitOfWork], **_: Any
 ):
     await allocate(
         commands.Allocate(order_id=evt.order_id, sku=evt.sku, qty=evt.qty),
@@ -54,7 +54,9 @@ async def reallocate(
 
 
 async def change_batch_quantity(
-    cmd: commands.ChangeBatchQuantity, uow_factory: type[UnitOfWorkProtocol], **_: Any
+    cmd: commands.ChangeBatchQuantity,
+    uow_factory: type[port.unit_of_work.UnitOfWork],
+    **_: Any,
 ):
     async with uow_factory() as uow:
         product = await uow.products.get_by_batchref(batchref=cmd.ref)
@@ -65,7 +67,7 @@ async def change_batch_quantity(
 
 
 async def send_out_of_stock_notification(
-    evt: events.OutOfStock, email_sender: EmailSender, **_: Any
+    evt: events.OutOfStock, email_sender: port.email_sender.EmailSender, **_: Any
 ):
     message = build_email_message(
         from_="from@example.com",
@@ -77,22 +79,26 @@ async def send_out_of_stock_notification(
 
 
 async def add_allocation_to_read_model(
-    evt: events.Allocated, uow_factory: type[UnitOfWork], **_: Any
+    evt: events.Allocated, uow_factory: type[SQLAlchemyUnitOfWork], **_: Any
 ):
     async with uow_factory() as uow:
         await uow._session.execute(  # type: ignore
-            "INSERT INTO allocations_view (orderid, sku, batchref) VALUES (:orderid, :sku, :batchref)",  # type: ignore
-            dict(orderid=evt.order_id, sku=evt.sku, batchref=evt.batchref),
+            text(
+                "INSERT INTO allocations_view (order_id, sku, batchref) VALUES (:order_id, :sku, :batchref)"
+            ),
+            dict(order_id=evt.order_id, sku=evt.sku, batchref=evt.batchref),
         )
         await uow.commit()
 
 
 async def remove_allocation_from_read_model(
-    evt: events.Deallocated, uow_factory: type[UnitOfWork], **_: Any
+    evt: events.Deallocated, uow_factory: type[SQLAlchemyUnitOfWork], **_: Any
 ):
     async with uow_factory() as uow:
         await uow._session.execute(  # type: ignore
-            "DELETE FROM allocations_view WHERE orderid = :orderid AND sku = :sku",  # type: ignore
-            dict(orderid=evt.order_id, sku=evt.sku),
+            text(
+                "DELETE FROM allocations_view WHERE order_id = :order_id AND sku = :sku"
+            ),
+            dict(order_id=evt.order_id, sku=evt.sku),
         )
         await uow.commit()

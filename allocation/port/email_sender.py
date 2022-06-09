@@ -1,8 +1,7 @@
+from email.message import EmailMessage
 from typing import Protocol
-from pydamain import port  # type: ignore
 
 
-class EmailSender(port.EmailSender, Protocol):
-
-    HOST: str
-    PORT: int
+class EmailSender(Protocol):
+    async def send(self, _message: EmailMessage):
+        ...

@@ -1,13 +1,11 @@
+import mimetypes
 from dataclasses import dataclass, field
 from email.message import EmailMessage
-from typing import Optional, Iterable
-import mimetypes
+from typing import Iterable, Optional
 
 from aiosmtplib import send  # type: ignore
-
-from ..config import settings
-
-from .. import port
+from allocation import port
+from allocation.config import settings
 
 
 @dataclass(slots=True, kw_only=True)
@@ -53,7 +51,7 @@ def build_email_message(
     return msg
 
 
-class EmailSender(port.EmailSender):
+class EmailSender(port.email_sender.EmailSender):
 
     HOST = settings.EMAIL_HOST
     PORT = settings.EMAIL_PORT

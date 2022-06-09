@@ -1,0 +1,61 @@
+version: "3.8"
+
+services:
+
+  postgres:
+    image: postgres:latest
+    command:
+      - "postgres"
+      - "-c"
+      - "wal_level=logical"
+
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    depends_on:
+      - postgres
+
+  zookeeper:
+    image: bitnami/zookeeper:latest
+
+  kafka-0:
+    image: bitnami/kafka:latest
+    depends_on:
+      - zookeeper
+
+  kafka-1:
+    image: bitnami/kafka:latest
+    depends_on:
+      - zookeeper
+
+  kafka-2:
+    image: bitnami/kafka:latest
+    depends_on:
+      - zookeeper
+
+  kafka-ui:
+    image: provectuslabs/kafka-ui:latest
+    depends_on:
+      - zookeeper
+      - kafka-0
+      - kafka-1
+      - kafka-2
+
+  connect:
+    image: debezium/connect:latest
+    depends_on:
+      - zookeeper
+      - kafka-0
+      - kafka-1
+      - kafka-2
+
+  mailhog:
+    image: mailhog/mailhog:latest
+
+  allocation:
+    build:
+      context: ..
+      dockerfile: ./docker/Dockerfile
+    depends_on:
+      - postgres
+      - mailhog
+      - connect

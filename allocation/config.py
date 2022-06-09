@@ -1,25 +1,23 @@
+from typing import Literal
+
 from pydantic import BaseSettings as _BaseSettings
 
 
 class _Settings(_BaseSettings):
 
-    DEBUG: bool
+    DEPLOYMENT_ENVIRONMENT: Literal["local", "dev", "prod"]
 
     API_VERSION: str
 
-    DATABASE_PROTOCOL: str
-    DATABASE_HOST: str
-    DATABASE_PORT: int
-    DATABASE_USERNAME: str
-    DATABASE_PASSWORD: str
-    DATABASE_NAME: str
+    DATABASE_URL: str
 
     EMAIL_HOST: str
     EMAIL_PORT: int
+    EMAIL_HTTP_PORT: int
 
-    @property
-    def DATABASE_URI(self):
-        return f"{self.DATABASE_PROTOCOL}://{self.DATABASE_USERNAME}:{self.DATABASE_PASSWORD}@{self.DATABASE_HOST}:{self.DATABASE_PORT}/{self.DATABASE_NAME}"
+    KAFKA_CONNECT_HOST: str
+    KAFKA_CONNECT_PORT: str
+    KAFKA_CONNECTER_CONFIGURATION: str
 
 
 settings = _Settings()  # type: ignore

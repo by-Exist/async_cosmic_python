@@ -1,0 +1,132 @@
+version: "3.8"
+
+volumes:
+  database-volume:
+  zookeeper-volume:
+  kafka-0-volume:
+  kafka-1-volume:
+  kafka-2-volume:
+  connect-logs:
+  connect-config:
+
+
+services:
+
+  postgres:
+    extends:
+      file: docker-compose.yml
+      service: postgres
+    volumes:
+      - database-volume:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    env_file:
+      - envs/dev/postgres.env
+
+  pgadmin:
+    extends:
+      file: docker-compose.yml
+      service: pgadmin
+    ports:
+      - "8080:80"
+    env_file:
+      - envs/dev/pgadmin.env
+
+  zookeeper:
+    extends:
+      file: docker-compose.yml
+      service: zookeeper
+    ports:
+      - "2181:2181"
+    volumes:
+      - zookeeper-volume:/bitnami/zookeeper
+    env_file:
+      - envs/dev/zookeeper.env
+
+  kafka-0:
+    extends:
+      file: docker-compose.yml
+      service: kafka-0
+    volumes:
+      - kafka-0-volume:/bitnami/kafka
+    ports:
+      - "9092:9092"
+    env_file:
+      - envs/dev/kafka.env
+    environment:
+      - KAFKA_CFG_BROKER_ID=0
+
+  kafka-1:
+    extends:
+      file: docker-compose.yml
+      service: kafka-1
+    volumes:
+      - kafka-1-volume:/bitnami/kafka
+    ports:
+      - "19092:9092"
+    env_file:
+      - envs/dev/kafka.env
+    environment:
+      - KAFKA_CFG_BROKER_ID=1
+
+  kafka-2:
+    extends:
+      file: docker-compose.yml
+      service: kafka-2
+    volumes:
+      - kafka-2-volume:/bitnami/kafka
+    ports:
+      - "29092:9092"
+    env_file:
+      - envs/dev/kafka.env
+    environment:
+      - KAFKA_CFG_BROKER_ID=2
+
+  kafka-ui:
+    extends:
+      file: docker-compose.yml
+      service: kafka-ui
+    ports:
+      - "8081:8080"
+    env_file:
+      - envs/dev/kafkaui.env
+
+  connect:
+    extends:
+      file: docker-compose.yml
+      service: connect
+    volumes:
+      - connect-logs:/kafka/logs
+      - connect-config:/kafka/config
+    ports:
+      - 8083:8083
+    env_file:
+      - envs/dev/connect.env
+
+  mailhog:
+    extends:
+      file: docker-compose.yml
+      service: mailhog
+    ports:
+      - "1025:1025"
+      - "8025:8025"
+
+  allocation:
+    extends:
+      file: docker-compose.yml
+      service: allocation
+    volumes:
+      - ../allocation:/src/allocation
+      - ../tests:/src/tests
+    ports:
+      - "8000:8000"
+    command: >
+      sh -c "
+        python -m allocation.entrypoint.pre_start.wait_database &&
+        python -m allocation.entrypoint.pre_start.create_table &&
+        python -m allocation.entrypoint.pre_start.add_connector &&
+        uvicorn allocation.entrypoint.fastapi_:app --reload --host=0.0.0.0 --port=8000
+      "
+    # pytest . --asyncio-mode=auto &&
+    env_file:
+      - envs/dev/allocation.env
