@@ -10,7 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..random_refs import random_batchref, random_order_id, random_sku
 
-pytestmark = pytest.mark.usefixtures("orm_mapping")
+pytestmark = pytest.mark.usefixtures("orm_mapping", "initialize_database")
 
 
 async def insert_batch(
@@ -27,7 +27,7 @@ async def insert_batch(
     )
     await session.execute(
         text(
-            "INSERT INTO batches (reference, sku, _purchased_quantity, eta) VALUES (:ref, :sku, :qty, :eta)"
+            "INSERT INTO batches (reference, sku, purchased_quantity, eta) VALUES (:ref, :sku, :qty, :eta)"
         ),
         dict(ref=ref, sku=sku, qty=qty, eta=eta),
     )
@@ -62,10 +62,10 @@ async def test_uow_can_retrieve_a_batch_and_allocate_to_it(
             product.allocate(line)
             await uow.commit()
 
-    batchref = await get_allocated_batch_ref(
-        database_session, "o1", "HIPSTER-WORKBENCH"
-    )
-    assert batchref == "batch1"
+        batchref = await get_allocated_batch_ref(
+            database_session, "o1", "HIPSTER-WORKBENCH"
+        )
+        assert batchref == "batch1"
 
 
 async def test_rolls_back_uncommitted_work_by_default(

@@ -42,7 +42,7 @@ batches = Table(
     Column("id", Integer, primary_key=True, autoincrement=True),
     Column("reference", String(255)),
     Column("sku", ForeignKey("products.sku")),
-    Column("_purchased_quantity", Integer, nullable=False),
+    Column("purchased_quantity", Integer, nullable=False),
     Column("eta", Date, nullable=True),
 )
 
@@ -64,7 +64,7 @@ allocations_view = Table(
 )
 
 
-def start_mapping():
+def start_mappers():
     mapper_registry.map_imperatively(OrderLine, order_lines)
     mapper_registry.map_imperatively(
         Batch,

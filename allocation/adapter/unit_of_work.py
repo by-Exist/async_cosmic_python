@@ -3,9 +3,11 @@ from types import TracebackType
 from typing import Callable, ClassVar, Optional, cast
 
 from allocation import port
+from allocation.config import settings
 from allocation.domain.messages.events import Event
 from allocation.service.message_bus import get_issued_messages
-from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
+from sqlalchemy.orm import sessionmaker
 from typing_extensions import Self
 
 from .outbox import Outbox
@@ -16,7 +18,6 @@ from .repository import ProductRepository
 class SQLAlchemyUnitOfWork(port.unit_of_work.UnitOfWork):
 
     SESSION_FACTORY: ClassVar[Callable[[], AsyncSession]]
-
     products: ProductRepository = field(init=False)
     _session: AsyncSession = field(init=False)
     _outbox: Outbox = field(init=False)
@@ -47,3 +48,16 @@ class SQLAlchemyUnitOfWork(port.unit_of_work.UnitOfWork):
 
     async def rollback(self) -> None:
         ...
+
+
+engine = create_async_engine(
+    settings.DATABASE_URL, future=True, isolation_level="REPEATABLE READ"
+)
+
+
+@dataclass
+class UnitOfWork(SQLAlchemyUnitOfWork):
+    SESSION_FACTORY: ClassVar[Callable[[], AsyncSession]] = sessionmaker(  # type: ignore
+        bind=engine,
+        class_=AsyncSession  # type: ignore
+    )

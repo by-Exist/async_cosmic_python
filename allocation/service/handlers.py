@@ -25,7 +25,7 @@ async def add_batch(
                 reference=cmd.ref,
                 sku=cmd.sku,
                 eta=cmd.eta,
-                _purchased_quantity=cmd.qty,
+                purchased_quantity=cmd.qty,
                 _allocations=set(),
             )
         )

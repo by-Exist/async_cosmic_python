@@ -1,8 +1,8 @@
 from datetime import datetime
-from typing import Any, Callable, Optional
+from typing import Any
 
-from allocation.adapter.email_sender import EmailSender
-from allocation.adapter.unit_of_work import SQLAlchemyUnitOfWork
+from allocation.adapter.email_sender import MailhogEmailSender
+from allocation.adapter.unit_of_work import UnitOfWork
 from allocation.bootstrap import bootstrap
 from allocation.config import settings
 from allocation.domain.messages import commands
@@ -11,51 +11,22 @@ from fastapi import FastAPI, status
 from fastapi.encoders import jsonable_encoder
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
-from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
-from sqlalchemy.orm import sessionmaker
+
 
 app = FastAPI(debug=False, version=settings.API_VERSION)
-
-
-class UnitOfWork(SQLAlchemyUnitOfWork):
-    SESSION_FACTORY: Callable[[], AsyncSession] = sessionmaker(  # type: ignore
-        create_async_engine(
-            settings.DATABASE_URL,
-            isolation_level="REPEATABLE READ",
-            future=True,
-        ),
-        class_=AsyncSession,  # type: ignore
-    )
-
-
-match settings.DEPLOYMENT_ENVIRONMENT:
-    case "local":
-        conf = {
-            "start_orm_mapping": True,
-            "uow_class": UnitOfWork,
-            "email_sender": EmailSender(),
-        }
-    case "dev":
-        conf = {
-            "start_orm_mapping": True,
-            "uow_class": UnitOfWork,
-            "email_sender": EmailSender(),
-        }
-    case "prod":
-        conf = {
-            "start_orm_mapping": True,
-            "uow_class": UnitOfWork,
-            "email_sender": EmailSender(),
-        }
-
-bus = bootstrap(**conf)  # type: ignore
+bus_default_conf: dict[str, Any] = {
+    "start_orm_mapping": True,
+    "uow_class": UnitOfWork,
+    "email_sender": MailhogEmailSender(),
+}
+bus = bootstrap(**bus_default_conf)
 
 
 class AddBatchRequest(BaseModel):
     ref: str
     sku: str
     qty: int
-    eta: Optional[datetime]
+    eta: datetime | None
 
 
 @app.post("/add_batch")
@@ -93,12 +64,13 @@ async def allocate(req: AllocateRequest):
 
 @app.get("/allocations/{order_id}")
 async def list_allocation(order_id: str):
-    result: list[dict[str, Any]] = await views.allocations(
-        order_id=order_id, uow_factory=bus._deps["uow_factory"]  # type: ignore
+    result = await views.allocations(
+        order_id=order_id, session=UnitOfWork.SESSION_FACTORY()
     )
     if not result:
         return JSONResponse(
-            content={"message": "not found"}, status_code=status.HTTP_404_NOT_FOUND
+            content={"message": f"order {order_id} not found"},
+            status_code=status.HTTP_404_NOT_FOUND,
         )
     return JSONResponse(
         content=jsonable_encoder(result), status_code=status.HTTP_200_OK

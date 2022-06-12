@@ -30,7 +30,7 @@ def message_bus(uow_class: type[unit_of_work.SQLAlchemyUnitOfWork]):
     bus = bootstrap.bootstrap(
         start_orm_mapping=True,
         uow_class=uow_class,
-        email_sender=email_sender.EmailSender(),
+        email_sender=email_sender.MailhogEmailSender(),
         post_hook=post_hook,
         exception_hook=exc_hook,
     )

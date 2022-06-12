@@ -3,7 +3,7 @@ from typing import Any, Awaitable, Callable, Optional, TypeVar
 from loguru import logger
 
 from allocation import port
-from allocation.adapter.orm import start_mapping
+from allocation.adapter.orm import start_mappers
 from allocation.domain.messages import commands, events
 from allocation.domain.messages.base import Message
 from allocation.service import handlers
@@ -40,7 +40,7 @@ def bootstrap(
 ) -> MessageBus:
 
     if start_orm_mapping:
-        start_mapping()
+        start_mappers()
 
     message_bus = MessageBus(
         deps={

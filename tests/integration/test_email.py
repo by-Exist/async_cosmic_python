@@ -1,30 +1,26 @@
 import pytest
 import requests
 
-from sqlalchemy.orm import clear_mappers
-
 from allocation import bootstrap
 from allocation.adapter import email_sender, unit_of_work
 from allocation.config import settings
 from allocation.domain.messages import commands
 from allocation.service.message_bus import MessageBus
 
-from ..conftest import AsyncSessionFactory
 from ..random_refs import random_sku
 
 
-@pytest.fixture
-def bus(database_session_factory: AsyncSessionFactory):
-    class UOW(unit_of_work.SQLAlchemyUnitOfWork):
-        SESSION_FACTORY = database_session_factory
+pytestmark = pytest.mark.usefixtures("orm_mapping")
 
+
+@pytest.fixture
+def bus(uow_class: type[unit_of_work.SQLAlchemyUnitOfWork]):
     bus = bootstrap.bootstrap(
-        start_orm_mapping=True,
-        uow_class=UOW,
-        email_sender=email_sender.EmailSender(),
+        start_orm_mapping=False,
+        uow_class=uow_class,
+        email_sender=email_sender.MailhogEmailSender(),
     )
     yield bus
-    clear_mappers()
 
 
 def get_email_from_mailhog(sku: str):

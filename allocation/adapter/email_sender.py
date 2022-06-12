@@ -51,7 +51,7 @@ def build_email_message(
     return msg
 
 
-class EmailSender(port.email_sender.EmailSender):
+class MailhogEmailSender(port.email_sender.EmailSender):
 
     HOST = settings.EMAIL_HOST
     PORT = settings.EMAIL_PORT

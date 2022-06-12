@@ -2,60 +2,75 @@ version: "3.8"
 
 services:
 
+  traefik:
+    image: traefik:latest
+    container_name: traefik
+    ports:
+      - "80:80"
+      - "8080:8080"
+    command:
+      - --api.insecure=true
+      - --providers.docker=true
+      - --providers.docker.exposedbydefault=false
+      - --entrypoints.web-ep.address=:80
+
   postgres:
     image: postgres:latest
+    container_name: postgres
     command:
-      - "postgres"
-      - "-c"
-      - "wal_level=logical"
+      - postgres
+      - -c
+      - wal_level=logical
 
   pgadmin:
     image: dpage/pgadmin4:latest
-    depends_on:
-      - postgres
+    container_name: pgadmin
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.pgadmin-router.entrypoints=web-ep
+      - traefik.http.routers.pgadmin-router.rule=Host(`pgadmin.localhost`)
+      - traefik.http.services.pgadmin-service.loadbalancer.server.port=80
 
   zookeeper:
     image: bitnami/zookeeper:latest
+    container_name: zookeeper
 
-  kafka-0:
+  kafka:
     image: bitnami/kafka:latest
-    depends_on:
-      - zookeeper
-
-  kafka-1:
-    image: bitnami/kafka:latest
-    depends_on:
-      - zookeeper
-
-  kafka-2:
-    image: bitnami/kafka:latest
-    depends_on:
-      - zookeeper
+    container_name: kafka
 
   kafka-ui:
     image: provectuslabs/kafka-ui:latest
-    depends_on:
-      - zookeeper
-      - kafka-0
-      - kafka-1
-      - kafka-2
+    container_name: kafka-ui
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.kafka-ui-router.entrypoints=web-ep
+      - traefik.http.routers.kafka-ui-router.rule=Host(`kafka-ui.localhost`)
+      - traefik.http.services.kafka-ui-service.loadbalancer.server.port=8080
 
   connect:
     image: debezium/connect:latest
-    depends_on:
-      - zookeeper
-      - kafka-0
-      - kafka-1
-      - kafka-2
+    container_name: connect
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.connect-router.entrypoints=web-ep
+      - traefik.http.routers.connect-router.rule=Host(`connect.localhost`)
+      - traefik.http.services.connect-service.loadbalancer.server.port=8083
 
   mailhog:
     image: mailhog/mailhog:latest
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.mailhog-router.entrypoints=web-ep
+      - traefik.http.routers.mailhog-router.rule=Host(`mailhog.localhost`)
+      - traefik.http.services.mailhog-service.loadbalancer.server.port=8025
 
   allocation:
     build:
       context: ..
       dockerfile: ./docker/Dockerfile
-    depends_on:
-      - postgres
-      - mailhog
-      - connect
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.allocation-router.entrypoints=web-ep
+      - traefik.http.routers.allocation-router.rule=Host(`allocation.localhost`)
+      - traefik.http.services.allocation-service.loadbalancer.server.port=8000

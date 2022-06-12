@@ -34,7 +34,7 @@ class Product(Aggregate):
 
     def change_batch_quantity(self, ref: str, qty: int):
         batch = next(batch for batch in self.batches if batch.reference == ref)
-        batch._purchased_quantity = qty  # type: ignore
+        batch.purchased_quantity = qty
         while batch.available_quantity < 0:
             line = batch.deallocate_one()
             self.version_number += 1

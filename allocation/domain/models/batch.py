@@ -9,7 +9,7 @@ class Batch(Entity):
     reference: str
     sku: str
     eta: Optional[date]
-    _purchased_quantity: int
+    purchased_quantity: int
     _allocations: set[OrderLine] = field(default_factory=set)
 
     def __repr__(self):
@@ -45,7 +45,7 @@ class Batch(Entity):
 
     @property
     def available_quantity(self) -> int:
-        return self._purchased_quantity - self.allocated_quantity
+        return self.purchased_quantity - self.allocated_quantity
 
     def can_allocate(self, line: OrderLine) -> bool:
         return self.sku == line.sku and self.available_quantity >= line.qty

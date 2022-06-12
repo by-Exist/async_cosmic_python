@@ -3,14 +3,14 @@ from sqlalchemy.ext.asyncio.session import AsyncSession
 from allocation.adapter import repository
 from allocation.domain import models
 
-pytestmark = pytest.mark.usefixtures("orm_mapping")
+pytestmark = pytest.mark.usefixtures("orm_mapping", "initialize_database")
 
 
 async def test_get_by_batchref(database_session: AsyncSession):
     repo = repository.ProductRepository(database_session)
-    b1 = models.Batch(reference="b1", sku="sku1", _purchased_quantity=100, eta=None)
-    b2 = models.Batch(reference="b2", sku="sku1", _purchased_quantity=100, eta=None)
-    b3 = models.Batch(reference="b3", sku="sku2", _purchased_quantity=100, eta=None)
+    b1 = models.Batch(reference="b1", sku="sku1", purchased_quantity=100, eta=None)
+    b2 = models.Batch(reference="b2", sku="sku1", purchased_quantity=100, eta=None)
+    b3 = models.Batch(reference="b3", sku="sku2", purchased_quantity=100, eta=None)
     p1 = models.Product(sku="sku1", batches=[b1, b2])
     p2 = models.Product(sku="sku2", batches=[b3])
     await repo.add(p1)
