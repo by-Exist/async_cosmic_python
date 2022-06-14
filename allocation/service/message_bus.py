@@ -1,6 +1,8 @@
 import asyncio
+import inspect
 from contextvars import ContextVar, Token
 from dataclasses import field
+from inspect import Parameter
 from types import TracebackType
 from typing import (
     Any,
@@ -15,10 +17,14 @@ from typing import (
     overload,
 )
 
-from allocation.domain.messages.base import Message
+from allocation.domain.messages.base import Command, Event
 from typing_extensions import Self
 
-# Handler
+# Message Typing
+Message = Command | Event
+
+
+# Handler Typing
 M_contra = TypeVar("M_contra", bound=Message, contravariant=True)
 
 
@@ -109,6 +115,27 @@ async def handle_parallel(
 
 
 # Message Bus
+C = TypeVar("C", bound=Command)
+E = TypeVar("E", bound=Event)
+
+
+def validate_deps(handler: Handler[Any], deps: dict[str, Any]):
+    params = inspect.signature(handler).parameters
+    skip_msg: bool = False
+    not_in_deps_params: list[str] = []
+    for param in params.values():
+        if not skip_msg:
+            skip_msg = True
+            continue
+        if param.kind != Parameter.VAR_KEYWORD and param.name not in deps:
+            not_in_deps_params.append(param.name)
+    if not_in_deps_params:
+        params_str = "(" + ", ".join(not_in_deps_params) + ")"
+        raise RuntimeError(
+            f"Handler {handler.__name__}'s parameters {params_str} not in deps."
+        )
+
+
 class MessageBus:
     def __init__(
         self,
@@ -133,17 +160,20 @@ class MessageBus:
 
     def register_handler(
         self,
-        message_type: type[M],
-        handler: Handler[M],
+        command_type: type[C],
+        handler: Handler[C],
     ):
-        self._handler_map[message_type] = handler
+        validate_deps(handler, self._deps)
+        self._handler_map[command_type] = handler
 
     def register_handlers(
         self,
-        message_type: type[Message],
-        handlers: Iterable[Handler[M]],
+        event_type: type[E],
+        handlers: Iterable[Handler[E]],
     ):
-        self._handlers_map[message_type] = handlers
+        for handler in handlers:
+            validate_deps(handler, self._deps)
+        self._handlers_map[event_type] = handlers
 
     @overload
     async def handle(self, message: Message):

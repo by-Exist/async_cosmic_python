@@ -34,7 +34,9 @@ async def add_batch(
 
 
 async def allocate(
-    cmd: commands.Allocate, uow_factory: type[port.unit_of_work.UnitOfWork], **_: Any
+    cmd: commands.Allocate,
+    uow_factory: type[port.unit_of_work.UnitOfWork],
+    **_: Any,
 ):
     line = models.OrderLine(order_id=cmd.order_id, sku=cmd.sku, qty=cmd.qty)
     async with uow_factory() as uow:

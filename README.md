@@ -55,15 +55,9 @@ MessageBus는 커맨드 또는 이벤트(메세지)를 받아 콜러블(핸들�
 
 그러나 개인적으로 생각하기에, 어차피 함수에 정의된 이름으로 객체를 매핑할 것이라면 파이썬의 unpack 문법을 사용한 것과 다를 바 없다고 생각했습니다. 핸들러를 호출할 때 dictionary unpack 문법을 활용해 인자를 전달하는 방식을 선택했습니다.
 
-단점과 이에 대한 해결 방안을 설명합니다.
-- message_bus 객체 생성 시점에서 모든 handler에 적절한 종속성이 주입될 것이라고 보장할 수 없다 => inspect로 handler들의 함수 인자와 message_bus가 지닌 종속성 객체 매핑의 이름을 대조하는 것으로 해결 가능
-- 모든 Handler에 반드시 kwargs 파라미터(**...)가 있기를 요구함(주입되었으나 사용되지 않을 종속성을 무시) => python의 [Callback Protocol](https://peps.python.org/pep-0544/#callback-protocols)을 활용하면 [Callable의 인자 구조를 제한](allocation\service\message_bus.py) 타이핑 기능으로 제한 가능
-
-## MessageBus와 Message, handler
-
-기존의 코드에서는 Command와 Event를 구분하여 사용했습니다. "A라는 일을 하기 바람"에 대한 단일 처리 커맨드 로직, "A라는 일이 수행됨"에 대한 다중 처리 이벤트 로직으로 구분되었습니다. 그러나 개인적으로 MessageBus에서 이 둘을 구분할 필요가 없다고 판단했습니다. 위에서 서술하였듯 "메세지를 콜러블의 첫번째 인자로 넘겨주고, 기타 인자를 종속성으로 주입하는 중재자"로 생각하였습니다.
-
-그리하여 기존 메세지 버스의 이벤트 및 커멘드를 기준으로 동작을 구분하는 방식 대신 등록된 핸들러가 1개 인지 N개인지에 따라 
+문제점과 이에 대한 해결 방안을 설명합니다.
+- message_bus 객체 생성 시점에서 모든 handler에 적절한 종속성이 주입될 것이라고 보장할 수 없다 => inspect로 handler들의 함수 인자와 message_bus가 지닌 종속성 객체 매핑의 이름을 대조하는 것으로 해결 가능 ([validate_deps](allocation\service\message_bus.py) 참조)
+- 모든 Handler에 반드시 kwargs 파라미터(**...)가 있기를 요구함(주입되었으나 사용되지 않을 종속성을 무시) => python의 [Callback Protocol](https://peps.python.org/pep-0544/#callback-protocols)을 활용하면 Callable의 인자 구조를 제한 타이핑 기능으로 제한 가능([_Handler](allocation\service\message_bus.py) 프로토콜 참조)
 
 ## 이벤트 발행 방식
 - 기존에는 에그리게잇이 모든 이벤트를 소유하는 방식으로 되어 UOW에서 해당 events를 수집하고 MessageBus까지 전달하는 방식으로 설계되어 있었음.
