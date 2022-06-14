@@ -1,4 +1,6 @@
+from typing import Any
 from allocation.domain.models import Batch, OrderLine, Product
+from allocation.domain.models.bases import ValueObject
 from sqlalchemy import Column, Date, ForeignKey, Integer, String, Table
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import registry, relationship
@@ -64,6 +66,18 @@ allocations_view = Table(
 )
 
 
+def detour_value_object_frozen_setattr(value_object_type: type[ValueObject]):
+    origin_setattr = value_object_type.__setattr__
+
+    def new_setattr(self: Any, name: str, value: Any):
+        if name == "_sa_instance_state":
+            object.__setattr__(self, name, value)
+        else:
+            origin_setattr(self, name, value)
+
+    value_object_type.__setattr__ = new_setattr
+
+
 def start_mappers():
     mapper_registry.map_imperatively(OrderLine, order_lines)
     mapper_registry.map_imperatively(
@@ -75,6 +89,7 @@ def start_mappers():
             )
         },
     )
+    detour_value_object_frozen_setattr(OrderLine)
     mapper_registry.map_imperatively(
         Product,
         products,

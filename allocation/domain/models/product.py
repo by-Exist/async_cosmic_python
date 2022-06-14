@@ -1,9 +1,10 @@
-from allocation.domain.messages import events
-from allocation.service.message_bus import issue
-
 from .bases import Aggregate, field
 from .batch import Batch
 from .order_line import OrderLine
+
+
+class OutOfStockException(Exception):
+    ...
 
 
 class Product(Aggregate):
@@ -19,30 +20,16 @@ class Product(Aggregate):
             )
             batch.allocate(line)
             self.version_number += 1
-            issue(
-                events.Allocated(
-                    aggregate_id=self.sku,
-                    order_id=line.order_id,
-                    sku=line.sku,
-                    qty=line.qty,
-                    batchref=batch.reference,
-                )
-            )
             return batch.reference
         except StopIteration:
-            issue(events.OutOfStock(aggregate_id=self.sku, sku=line.sku))
+            raise OutOfStockException()
 
     def change_batch_quantity(self, ref: str, qty: int):
         batch = next(batch for batch in self.batches if batch.reference == ref)
         batch.purchased_quantity = qty
+        deallocated_lines: list[OrderLine] = []
         while batch.available_quantity < 0:
             line = batch.deallocate_one()
-            self.version_number += 1
-            issue(
-                events.Deallocated(
-                    aggregate_id=self.sku,
-                    order_id=line.order_id,
-                    sku=line.sku,
-                    qty=line.qty,
-                )
-            )
+            deallocated_lines.append(line)
+        self.version_number += 1
+        return deallocated_lines

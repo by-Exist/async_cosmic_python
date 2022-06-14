@@ -7,6 +7,7 @@ from allocation.adapter.email_sender import build_email_message
 from allocation.adapter.unit_of_work import SQLAlchemyUnitOfWork
 from allocation.domain import models
 from allocation.domain.messages import commands, events
+from allocation.service.message_bus import issue
 from sqlalchemy import text
 
 from . import exceptions
@@ -40,7 +41,19 @@ async def allocate(
         product = await uow.products.get(sku=line.sku)
         if product is None:
             raise exceptions.InvalidSku(f"Invalid sku {line.sku}")
-        product.allocate(line)
+        try:
+            batchref = product.allocate(line)
+            issue(
+                events.Allocated(
+                    aggregate_id=product.sku,
+                    order_id=line.order_id,
+                    sku=line.sku,
+                    qty=line.qty,
+                    batchref=batchref,
+                )
+            )
+        except models.product.OutOfStockException:
+            issue(events.OutOfStock(aggregate_id=product.sku, sku=line.sku))
         await uow.commit()
 
 
@@ -62,7 +75,16 @@ async def change_batch_quantity(
         product = await uow.products.get_by_batchref(batchref=cmd.ref)
         if not product:
             raise exceptions.ProductNotFound(f"Product not found (batchref={cmd.ref})")
-        product.change_batch_quantity(ref=cmd.ref, qty=cmd.qty)
+        deallocated_lines = product.change_batch_quantity(ref=cmd.ref, qty=cmd.qty)
+        for line in deallocated_lines:
+            issue(
+                events.Deallocated(
+                    aggregate_id=product.sku,
+                    order_id=line.order_id,
+                    sku=line.sku,
+                    qty=line.qty,
+                )
+            )
         await uow.commit()
 
 
