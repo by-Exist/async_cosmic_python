@@ -55,7 +55,7 @@ class AllocateRequest(BaseModel):
     "/allocate",
     responses={
         400: {"message": "Invalid sku ..."},
-        200: {"message": "OK"},
+        201: {"message": "OK"},
     },
 )
 async def allocate(req: AllocateRequest):
