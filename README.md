@@ -80,7 +80,7 @@ Starlette 및 Fastapi에서 제공하는 기능 "BackgroundTask"를 활용하면
 
 2번 동작을 위해 기존 MessageBus의 동작을 변경하여, 직접적으로 요청된 작업과 트리거(issue된 동작들)되어 실행되어야 할 작업을 분리하였고, handle 수행 시 return_hooked_task를 True로 지정하는 것으로 후행 작업을 태스크 객체로 반환하도록 수정하였습니다. ([MessageBus의 handle 메서드 참조](allocation/service/message_bus.py))
 
-만약 A1(A2(A1(A2(...))))과 같은 재귀 동작이 발생할 경우 이를 중단할 방법이 구현되어 있지 않습니다. 비순환 구조로 변환해야 하는가에 대한 의문도 있었으나, 결론을 내지 못해 순환 구조의 발생을 막지 않았습니다.
+만약 A1(A2(A1(A2(...))))과 같은 재귀 동작이 발생할 경우 이를 중단할 방법이 구현되어 있지 않습니다. 비순환 구조로 변환해야 하는가에 대한 의문도 있었으나, 결론을 내지 못해 순환 구조의 발생을 막지 않았습니다. 개인적으로 이를 휴먼 에러로 보고 있습니다.
 
 3번 동작을 위해 조사한 결과 Starlette 및 FastAPI는 동기/비동기 콜러블에 대해서만 구현되어 있었으며 Awaitable 객체는 지원하지 않았습니다. 코드를 살펴본 결과 단지 BackgroundTask에게 비동기 \_\_call__ 특수 메서드를 요구할 뿐이었으며, Awaitable을 지니고 호출 시 self.awaitable을 await하는 [AwaitableBackgroundTask](allocation/entrypoint/fastapi_.py)를 정의하여 활용하였습니다.
 
@@ -95,5 +95,4 @@ Response After Work 동작은 [fastapi 엔드포인트 allocate](allocation/entr
 ## 미예정 사항
 
 - alembic을 활용한 데이터베이스 스키마 관리
-- github action을 활용한 CI 과정 도입
-- ECS에 배포
+- CI / CD 파이프라인 구축
