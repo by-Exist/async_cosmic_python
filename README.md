@@ -66,13 +66,13 @@ RDBMS의 경우 Outbox 패턴은 Repository 패턴과 구조가 유사하며, Re
 
 ## Return After Work
 
-기존의 코드는 핸들러 처리 중 메세지가 발생하는 만큼의 모든 메세지를 처리한 이후에 동작하도록 구성되어 있습니다. 대략적인 전개는 다음과 같습니다.
+기존의 코드는 핸들러 처리 중 발생하는 모든 메세지를 처리한 후에 응답을 반환하도록 구성되어 있습니다. 대략적인 전개는 다음과 같습니다.
 
 1. C1 수행 중 E1, E2, E3 발생
 2. E1, E2, E3를 순차적으로 처리
 3. Response
 
-Starlette 및 Fastapi에서 제공하는 기능 "BackgroundTask"를 활용하면 Response 반환 이후 수행될 작업을 지정할 수 있습니다. 이를 활용하여 다음과 같은 로직을 떠올렸습니다.
+Starlette 및 Fastapi에서 제공하는 기능 "BackgroundTask"를 활용하면 Response 반환 이후 수행될 작업을 지정할 수 있습니다. 이를 활용한다면 다음과 같이 처리할 수 있다고 판단했습니다.
 
 1. C1 수행 중 E1, E2, E3 발생
 2. E1, E2, E3를 병렬적으로 처리(asyncio.gather)하는 로직을 지닌 Task 객체 생성
