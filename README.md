@@ -72,7 +72,7 @@ RDBMS의 경우 Outbox 패턴은 Repository 패턴과 구조가 유사하며, Re
 2. E1, E2, E3를 순차적으로 처리
 3. Response
 
-Starlette 및 Fastapi에서 제공하는 기능 "BackgroundTask"를 활용하면 Response 반환 수행될 작업을 지정할 수 있습니다. 이를 활용하여 다음과 같은 로직을 떠올렸습니다.
+Starlette 및 Fastapi에서 제공하는 기능 "BackgroundTask"를 활용하면 Response 반환 이후 수행될 작업을 지정할 수 있습니다. 이를 활용하여 다음과 같은 로직을 떠올렸습니다.
 
 1. C1 수행 중 E1, E2, E3 발생
 2. E1, E2, E3를 병렬적으로 처리(asyncio.gather)하는 로직을 지닌 Task 객체 생성
