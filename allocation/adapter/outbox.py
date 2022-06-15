@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import ClassVar, Iterable, cast
+from typing import ClassVar, Iterable
 from uuid import UUID
 
 from allocation import port
@@ -7,7 +7,7 @@ from allocation.domain.messages import events
 from allocation.domain.messages.events import Event
 from cattrs.preconf.json import make_converter  # type: ignore
 from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession  # type: ignore
+from sqlalchemy.ext.asyncio import AsyncSession
 
 converter = make_converter()
 
@@ -39,8 +39,8 @@ class Outbox(port.outbox.Outbox[Event]):
     _session: AsyncSession
 
     async def all(self) -> Iterable[Event]:
-        envelopes = await self._session.scalars(select(Envelope))
-        envelopes = cast(Iterable[Envelope], envelopes)
+        envelope_scalars = await self._session.scalars(select(Envelope))
+        envelopes: list[Envelope] = envelope_scalars.all()
         events = (
             converter.loads(envelope.payload, self.EVENT_MAP[envelope.type])  # type: ignore
             for envelope in envelopes

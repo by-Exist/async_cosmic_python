@@ -21,17 +21,20 @@ class MessageMeta(ABCMeta):
         return dataclass(frozen=True, kw_only=True)(new_cls)  # type: ignore
 
 
-class Message(metaclass=MessageMeta):
+class _Message(metaclass=MessageMeta):
     uid: UUID = field(default_factory=uuid4)
     create_time: float = field(
         default_factory=lambda: datetime.now(timezone.utc).timestamp()
     )
 
 
-class Command(Message):
+class Command(_Message):
     ...
 
 
-class Event(Message):
+class Event(_Message):
     AGGREGATE_TYPE: ClassVar[str]
     aggregate_id: str
+
+
+Message = Command | Event

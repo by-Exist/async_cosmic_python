@@ -1,6 +1,6 @@
 from dataclasses import dataclass, field
 from types import TracebackType
-from typing import Callable, ClassVar, Optional, cast
+from typing import Callable, ClassVar, Optional
 
 from allocation import port
 from allocation.config import settings
@@ -13,11 +13,18 @@ from typing_extensions import Self
 from .outbox import Outbox
 from .repository import ProductRepository
 
+engine = create_async_engine(
+    settings.DATABASE_URL, future=True, isolation_level="REPEATABLE READ"
+)
+
 
 @dataclass
-class SQLAlchemyUnitOfWork(port.unit_of_work.UnitOfWork):
+class UnitOfWork(port.unit_of_work.UnitOfWork):
 
-    SESSION_FACTORY: ClassVar[Callable[[], AsyncSession]]
+    SESSION_FACTORY: ClassVar[Callable[[], AsyncSession]] = sessionmaker(  # type: ignore
+        bind=engine, class_=AsyncSession  # type: ignore
+    )
+
     products: ProductRepository = field(init=False)
     _session: AsyncSession = field(init=False)
     _outbox: Outbox = field(init=False)
@@ -38,26 +45,15 @@ class SQLAlchemyUnitOfWork(port.unit_of_work.UnitOfWork):
 
     async def commit(self) -> None:
         issued_messages = get_issued_messages()
-        issued_messages = cast(set[Event], issued_messages)
-        for msg in issued_messages:
+        issued_events = (
+            message for message in issued_messages if isinstance(message, Event)
+        )
+        for msg in issued_events:
             await self._outbox.put(msg)
         await self._session.commit()
-        for msg in issued_messages:
+        for msg in issued_events:
             await self._outbox.delete(msg)
         await self._session.commit()
 
     async def rollback(self) -> None:
         ...
-
-
-engine = create_async_engine(
-    settings.DATABASE_URL, future=True, isolation_level="REPEATABLE READ"
-)
-
-
-@dataclass
-class UnitOfWork(SQLAlchemyUnitOfWork):
-    SESSION_FACTORY: ClassVar[Callable[[], AsyncSession]] = sessionmaker(  # type: ignore
-        bind=engine,
-        class_=AsyncSession  # type: ignore
-    )

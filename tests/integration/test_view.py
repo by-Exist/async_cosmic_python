@@ -5,7 +5,7 @@ import pytest
 from allocation import bootstrap
 from allocation.adapter import email_sender, unit_of_work
 from allocation.domain.messages import commands
-from allocation.domain.messages.base import Command, Event
+from allocation.domain.messages.base import Message
 from allocation.service import views
 from allocation.service.message_bus import Handler, MessageBus
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -14,7 +14,6 @@ from sqlalchemy.orm import clear_mappers
 today = date.today()
 
 
-Message = Command | Event
 M = TypeVar("M", bound=Message)
 
 
@@ -27,7 +26,7 @@ async def post_hook(message: M, handler: Handler[M]):
 
 
 @pytest.fixture
-def message_bus(uow_class: type[unit_of_work.SQLAlchemyUnitOfWork]):
+def message_bus(uow_class: type[unit_of_work.UnitOfWork]):
     bus = bootstrap.bootstrap(
         start_orm_mapping=True,
         uow_class=uow_class,

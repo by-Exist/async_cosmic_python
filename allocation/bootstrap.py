@@ -5,12 +5,9 @@ from loguru import logger
 from allocation import port
 from allocation.adapter.orm import start_mappers
 from allocation.domain.messages import commands, events
-from allocation.domain.messages.base import Command, Event
+from allocation.domain.messages.base import Message
 from allocation.service import handlers
 from allocation.service.message_bus import Handler, MessageBus
-
-
-Message = Command | Event
 
 
 M = TypeVar("M", bound=Message)
@@ -21,12 +18,12 @@ async def pre_hook(msg: M, handler: Handler[M]):
 
 
 async def post_hook(msg: M, handler: Handler[M]):
-    logger.debug(f"[Handled {handler.__name__} {type(msg).__name__}] {msg}")
+    logger.debug(f'[Handled {type(msg).__name__} using "{handler.__name__}"] {msg}')
 
 
 async def exception_hook(msg: M, handler: Handler[M], exc: Exception):
     logger.exception(
-        f"[Exception {type(exc)} {handler.__name__} {type(msg).__name__}] {exc} "
+        f'[Exception {type(exc)} at "{handler.__name__}"] {type(msg).__name__}] {exc}'
     )
 
 

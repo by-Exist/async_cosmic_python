@@ -17,11 +17,8 @@ from typing import (
     overload,
 )
 
-from allocation.domain.messages.base import Command, Event
+from allocation.domain.messages.base import Command, Event, Message
 from typing_extensions import Self
-
-# Message Typing
-Message = Command | Event
 
 
 # Handler Typing

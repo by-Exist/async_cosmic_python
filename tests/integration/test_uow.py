@@ -49,7 +49,7 @@ async def get_allocated_batch_ref(session: AsyncSession, order_id: str, sku: str
 
 async def test_uow_can_retrieve_a_batch_and_allocate_to_it(
     database_session: AsyncSession,
-    uow_class: type[unit_of_work.SQLAlchemyUnitOfWork],
+    uow_class: type[unit_of_work.UnitOfWork],
 ):
     await insert_batch(database_session, "batch1", "HIPSTER-WORKBENCH", 100, None)
     await database_session.commit()
@@ -70,7 +70,7 @@ async def test_uow_can_retrieve_a_batch_and_allocate_to_it(
 
 async def test_rolls_back_uncommitted_work_by_default(
     database_session: AsyncSession,
-    uow_class: type[unit_of_work.SQLAlchemyUnitOfWork],
+    uow_class: type[unit_of_work.UnitOfWork],
 ):
     async with uow_class() as uow:
         await insert_batch(uow._session, "batch1", "MEDIUM-PLINTH", 100, None)  # type: ignore
@@ -80,7 +80,7 @@ async def test_rolls_back_uncommitted_work_by_default(
 
 
 async def test_rolls_back_on_error(
-    database_session: AsyncSession, uow_class: type[unit_of_work.SQLAlchemyUnitOfWork]
+    database_session: AsyncSession, uow_class: type[unit_of_work.UnitOfWork]
 ):
     class MyException(Exception):
         pass
@@ -98,7 +98,7 @@ async def try_to_allocate(
     order_id: str,
     sku: str,
     exceptions: list[Exception],
-    uow_class: type[unit_of_work.SQLAlchemyUnitOfWork],
+    uow_class: type[unit_of_work.UnitOfWork],
 ):
     line = models.OrderLine(order_id=order_id, sku=sku, qty=10)
     try:
@@ -114,7 +114,7 @@ async def try_to_allocate(
 
 
 async def test_concurrent_updates_to_version_are_not_allowed(
-    database_session: AsyncSession, uow_class: type[unit_of_work.SQLAlchemyUnitOfWork]
+    database_session: AsyncSession, uow_class: type[unit_of_work.UnitOfWork]
 ):
     sku, batch = random_sku(), random_batchref()
     await insert_batch(database_session, batch, sku, 100, eta=None, product_version=1)

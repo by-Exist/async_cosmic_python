@@ -14,7 +14,7 @@ pytestmark = pytest.mark.usefixtures("orm_mapping")
 
 
 @pytest.fixture
-def bus(uow_class: type[unit_of_work.SQLAlchemyUnitOfWork]):
+def bus(uow_class: type[unit_of_work.UnitOfWork]):
     bus = bootstrap.bootstrap(
         start_orm_mapping=False,
         uow_class=uow_class,

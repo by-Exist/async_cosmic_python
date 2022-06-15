@@ -4,7 +4,7 @@ from typing import Any
 
 from allocation import port
 from allocation.adapter.email_sender import build_email_message
-from allocation.adapter.unit_of_work import SQLAlchemyUnitOfWork
+from allocation.adapter.unit_of_work import UnitOfWork
 from allocation.domain import models
 from allocation.domain.messages import commands, events
 from allocation.service.message_bus import issue
@@ -54,9 +54,10 @@ async def allocate(
                     batchref=batchref,
                 )
             )
+            await uow.commit()
         except models.product.OutOfStockException:
             issue(events.OutOfStock(aggregate_id=product.sku, sku=line.sku))
-        await uow.commit()
+            return
 
 
 async def reallocate(
@@ -103,7 +104,7 @@ async def send_out_of_stock_notification(
 
 
 async def add_allocation_to_read_model(
-    evt: events.Allocated, uow_factory: type[SQLAlchemyUnitOfWork], **_: Any
+    evt: events.Allocated, uow_factory: type[UnitOfWork], **_: Any
 ):
     async with uow_factory() as uow:
         await uow._session.execute(  # type: ignore
@@ -116,7 +117,7 @@ async def add_allocation_to_read_model(
 
 
 async def remove_allocation_from_read_model(
-    evt: events.Deallocated, uow_factory: type[SQLAlchemyUnitOfWork], **_: Any
+    evt: events.Deallocated, uow_factory: type[UnitOfWork], **_: Any
 ):
     async with uow_factory() as uow:
         await uow._session.execute(  # type: ignore

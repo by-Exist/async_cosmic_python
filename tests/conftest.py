@@ -62,7 +62,7 @@ async def database_session(database_session_factory: AsyncSessionFactory):
 # UnitOfWork
 @pytest.fixture(scope="session")
 def uow_class(database_session_factory: AsyncSessionFactory):
-    class UOW(unit_of_work.SQLAlchemyUnitOfWork):
+    class UOW(unit_of_work.UnitOfWork):
         SESSION_FACTORY = database_session_factory
 
     return UOW

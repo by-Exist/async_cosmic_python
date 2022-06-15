@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Any
+from typing import Any, Awaitable
 
 from allocation.adapter.email_sender import MailhogEmailSender
 from allocation.adapter.unit_of_work import UnitOfWork
@@ -11,7 +11,7 @@ from fastapi import FastAPI, status
 from fastapi.encoders import jsonable_encoder
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
-
+from starlette.background import BackgroundTask
 
 app = FastAPI(debug=False, version=settings.API_VERSION)
 bus_default_conf: dict[str, Any] = {
@@ -20,6 +20,14 @@ bus_default_conf: dict[str, Any] = {
     "email_sender": MailhogEmailSender(),
 }
 bus = bootstrap(**bus_default_conf)
+
+
+class AwaitableBackgroundTask(BackgroundTask):
+    def __init__(self, awaitable: Awaitable[Any]):
+        self.awaitable = awaitable
+
+    async def __call__(self):
+        await self.awaitable
 
 
 class AddBatchRequest(BaseModel):
@@ -52,14 +60,19 @@ class AllocateRequest(BaseModel):
 )
 async def allocate(req: AllocateRequest):
     try:
-        await bus.handle(
-            commands.Allocate(order_id=req.order_id, sku=req.sku, qty=req.qty)
+        task = await bus.handle(
+            commands.Allocate(order_id=req.order_id, sku=req.sku, qty=req.qty),
+            return_hooked_task=True,
         )
     except exceptions.InvalidSku as e:
         return JSONResponse(
             content={"message": str(e)}, status_code=status.HTTP_400_BAD_REQUEST
         )
-    return JSONResponse(content={"message": "OK"}, status_code=status.HTTP_201_CREATED)
+    return JSONResponse(
+        content={"message": "OK"},
+        status_code=status.HTTP_201_CREATED,
+        background=AwaitableBackgroundTask(task),
+    )
 
 
 @app.get("/allocations/{order_id}")
