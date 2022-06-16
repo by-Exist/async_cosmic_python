@@ -5,6 +5,7 @@ from sqlalchemy import Column, Date, ForeignKey, Integer, String, Table
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import registry, relationship
 
+from dataclasses import FrozenInstanceError
 from .outbox import Envelope
 
 mapper_registry = registry()
@@ -70,10 +71,13 @@ def detour_value_object_frozen_setattr(value_object_type: type[ValueObject]):
     origin_setattr = value_object_type.__setattr__
 
     def new_setattr(self: Any, name: str, value: Any):
-        if name == "_sa_instance_state":
-            object.__setattr__(self, name, value)
-        else:
+        try:
             origin_setattr(self, name, value)
+        except FrozenInstanceError as e:
+            if e.name == "_sa_instance_state":
+                object.__setattr__(self, name, value)
+            else:
+                raise e
 
     value_object_type.__setattr__ = new_setattr
 
